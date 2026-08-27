@@ -1,0 +1,80 @@
+/* BIZNEXCO colorful visual layer — presentation only. No application logic is changed. */
+:root.biznexco-colorful-theme {
+  --biz-blue:#2563eb; --biz-indigo:#4f46e5; --biz-purple:#7c3aed;
+  --biz-cyan:#0891b2; --biz-green:#16a34a; --biz-orange:#f97316;
+  --biz-pink:#db2777; --biz-yellow:#f59e0b; --biz-ink:#172554;
+}
+body.biznexco-colorful-theme {
+  background:linear-gradient(135deg,#eef6ff 0%,#f7f3ff 48%,#fff7ed 100%) !important;
+}
+body.biznexco-colorful-theme > header {
+  position:relative; overflow:hidden;
+  background:linear-gradient(105deg,#101b55 0%,#2347a5 55%,#7c3aed 100%) !important;
+  box-shadow:0 8px 28px rgba(37,99,235,.18);
+}
+body.biznexco-colorful-theme > header:after {
+  content:""; position:absolute; right:-30px; top:-65px; width:300px; height:190px;
+  background:url('assets/rent-management-hero.svg') right center/contain no-repeat;
+  opacity:.95; pointer-events:none;
+}
+body.biznexco-colorful-theme > header .brand,
+body.biznexco-colorful-theme > header .sub { position:relative; z-index:2; }
+body.biznexco-colorful-theme nav {
+  background:rgba(255,255,255,.96) !important;
+  border-bottom:1px solid #dbeafe !important;
+  box-shadow:0 5px 20px rgba(37,99,235,.10);
+  backdrop-filter:blur(10px);
+}
+body.biznexco-colorful-theme nav button {
+  color:#172554 !important; border:1px solid #dbeafe !important;
+  transition:transform .18s ease,box-shadow .18s ease,filter .18s ease;
+}
+body.biznexco-colorful-theme nav button:hover { transform:translateY(-2px); box-shadow:0 7px 16px rgba(37,99,235,.18); filter:saturate(1.1); }
+body.biznexco-colorful-theme nav button.active { color:#fff !important; border-color:transparent !important; box-shadow:0 8px 18px rgba(37,99,235,.28); }
+.biz-tab-0{background:#dbeafe !important}.biz-tab-0.active{background:#2563eb !important}
+.biz-tab-1{background:#dcfce7 !important}.biz-tab-1.active{background:#16a34a !important}
+.biz-tab-2{background:#f3e8ff !important}.biz-tab-2.active{background:#7c3aed !important}
+.biz-tab-3{background:#e0e7ff !important}.biz-tab-3.active{background:#4338ca !important}
+.biz-tab-4{background:#cffafe !important}.biz-tab-4.active{background:#0891b2 !important}
+.biz-tab-5{background:#ffedd5 !important}.biz-tab-5.active{background:#f97316 !important}
+.biz-tab-6{background:#fce7f3 !important}.biz-tab-6.active{background:#db2777 !important}
+body.biznexco-colorful-theme .page { position:relative; isolation:isolate; }
+body.biznexco-colorful-theme .biz-page-art {
+  position:absolute; right:0; top:0; width:min(300px,35vw); height:145px;
+  pointer-events:none; z-index:-1; opacity:.78; overflow:hidden;
+}
+body.biznexco-colorful-theme .biz-page-art img { width:100%; height:100%; object-fit:contain; object-position:right top; }
+body.biznexco-colorful-theme .page.active .biz-page-art { animation:bizFade .5s ease both; }
+@keyframes bizFade { from{opacity:0;transform:translateY(-8px)} to{opacity:.78;transform:none} }
+body.biznexco-colorful-theme .card,
+body.biznexco-colorful-theme .settings-card {
+  border-color:#dbeafe !important; box-shadow:0 8px 24px rgba(30,64,175,.08) !important;
+}
+body.biznexco-colorful-theme .biz-color-card { position:relative; overflow:hidden; }
+body.biznexco-colorful-theme .biz-color-card:after {
+  content:""; position:absolute; width:90px; height:90px; border-radius:50%; right:-30px; bottom:-35px;
+  opacity:.45; pointer-events:none;
+}
+body.biznexco-colorful-theme .biz-color-card:nth-child(6n+1):after{background:#bfdbfe}
+body.biznexco-colorful-theme .biz-color-card:nth-child(6n+2):after{background:#ddd6fe}
+body.biznexco-colorful-theme .biz-color-card:nth-child(6n+3):after{background:#bbf7d0}
+body.biznexco-colorful-theme .biz-color-card:nth-child(6n+4):after{background:#fed7aa}
+body.biznexco-colorful-theme .biz-color-card:nth-child(6n+5):after{background:#fbcfe8}
+body.biznexco-colorful-theme .biz-color-card:nth-child(6n):after{background:#a5f3fc}
+body.biznexco-colorful-theme .primary,
+body.biznexco-colorful-theme .login-submit {
+  background:linear-gradient(100deg,#2563eb,#7c3aed) !important;
+  box-shadow:0 7px 18px rgba(79,70,229,.22);
+}
+body.biznexco-colorful-theme .secondary { border-color:#bfdbfe !important; }
+body.biznexco-colorful-theme .section { color:#1e3a8a; }
+body.biznexco-colorful-theme th { background:linear-gradient(90deg,#eff6ff,#f5f3ff) !important; color:#1e3a8a !important; }
+body.biznexco-colorful-theme .good { color:#15803d !important; }
+body.biznexco-colorful-theme .bad { color:#dc2626 !important; }
+body.biznexco-colorful-theme .notice { box-shadow:0 5px 15px rgba(37,99,235,.08); }
+body.biznexco-colorful-theme .success { border:1px solid #bbf7d0; }
+@media(max-width:760px){
+  body.biznexco-colorful-theme > header:after{width:190px;height:105px;right:-25px;top:-20px;opacity:.55}
+  body.biznexco-colorful-theme .biz-page-art{width:190px;height:100px;opacity:.48}
+  body.biznexco-colorful-theme .biz-page-art img{object-position:right top}
+}
