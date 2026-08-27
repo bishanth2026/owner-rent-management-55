@@ -1,0 +1,42 @@
+name: Fix app JavaScript syntax
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix-js:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Repair broken report HTML string
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          text = p.read_text(encoding='utf-8')
+          broken = '<script src="visual-theme.js?v=1"></script>\n</body></html>";'
+          fixed = '</body></html>";'
+          if broken in text:
+              text = text.replace(broken, fixed, 1)
+              p.write_text(text, encoding='utf-8')
+              print('Repaired broken JavaScript string in saveReport().')
+          else:
+              print('No broken string found; no change needed.')
+      - name: Commit repair
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "No repair needed"
+          else
+            git commit -m "Fix broken report string and restore button actions"
+            git push
+          fi
