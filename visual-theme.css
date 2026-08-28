@@ -78,3 +78,23 @@ body.biznexco-colorful-theme .success { border:1px solid #bbf7d0; }
   body.biznexco-colorful-theme .biz-page-art{width:190px;height:100px;opacity:.48}
   body.biznexco-colorful-theme .biz-page-art img{object-position:right top}
 }
+
+/* BIZNEXCO mobile banner fit — presentation only; no application logic changed. */
+@media (max-width:760px){
+  .owner-dashboard-hero,
+  .tenant-premium-hero{
+    width:100% !important;
+    max-width:100% !important;
+    overflow:hidden !important;
+  }
+  .owner-account-banner,
+  .tenant-premium-hero img{
+    display:block !important;
+    width:100% !important;
+    max-width:100% !important;
+    height:auto !important;
+    max-height:none !important;
+    object-fit:contain !important;
+    object-position:center center !important;
+  }
+}
