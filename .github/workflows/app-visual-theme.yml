@@ -17,28 +17,27 @@ jobs:
         with:
           fetch-depth: 1
 
-      - name: Repair report HTML script string
+      - name: Repair report HTML generation safely
         shell: python
         run: |
           from pathlib import Path
+          import re
           p = Path('index.html')
           text = p.read_text(encoding='utf-8')
-          old1 = '+"<script src=\'visual-theme.js?v=1\'><\\/script>\n<script src="visual-theme.js?v=1"></script>\n</body></html>";'
-          new1 = '+"<script src=\'visual-theme.js?v=1\'><\\/script>\n</body></html>";'
-          old2 = '+"<script src="visual-theme.js?v=1"></script>\n</body></html>";'
-          new2 = '+"<script src=\'visual-theme.js?v=1\'><\\/script>\n</body></html>";'
-          old3 = '<\\/script>\n<script src="visual-theme.js?v=1"></script>\n</body></html>";'
-          new3 = '<\\/script>\n</body></html>";'
-          changed = False
-          for old, new in ((old1,new1),(old2,new2),(old3,new3)):
-              if old in text:
-                  text = text.replace(old, new, 1)
-                  changed = True
-                  print('Removed/repaired broken report script markup')
-          if changed:
-              p.write_text(text, encoding='utf-8')
+          start = text.find('let content=')
+          end = text.find('  let blob=', start)
+          if start >= 0 and end > start:
+              segment = text[start:end]
+              pattern = r'(\+document\.querySelector\(\\?"#reportPrintArea \.tablewrap\\?"\)\.outerHTML\+\").*?(?=\n  let blob=)'
+              fixed, count = re.subn(pattern, r'\1</body></html>";', segment, count=1, flags=re.S)
+              if count:
+                  text = text[:start] + fixed + text[end:]
+                  p.write_text(text, encoding='utf-8')
+                  print('Repaired report HTML string without changing app logic')
+              else:
+                  print('Report HTML tail already safe')
           else:
-              print('Report script string already repaired')
+              print('Report generator boundaries not found; no change made')
 
       - name: Add visual theme to index.html
         shell: python
@@ -65,6 +64,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No HTML changes required"
           else
-            git commit -m "Repair broken report HTML script string"
+            git commit -m "Repair report HTML generation safely"
             git push
           fi
