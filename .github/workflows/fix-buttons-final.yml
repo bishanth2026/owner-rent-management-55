@@ -1,7 +1,8 @@
 name: Fix button JavaScript syntax
 
 on:
-  workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: write
@@ -19,15 +20,20 @@ jobs:
           text = p.read_text(encoding='utf-8')
           bad = '<script src="visual-theme.js?v=1"></script>\\n</body></html>'
           if bad not in text:
-              raise SystemExit('Expected broken JavaScript fragment was not found; no changes made.')
-          text = text.replace(bad, '</body></html>', 1)
-          p.write_text(text, encoding='utf-8')
-          print('Fixed invalid nested script tag in report HTML string.')
-      - name: Commit fix
+              print('Broken fragment not present; nothing to change.')
+          else:
+              text = text.replace(bad, '</body></html>', 1)
+              p.write_text(text, encoding='utf-8')
+              print('Fixed invalid nested script tag in report HTML string.')
+      - name: Commit fix if changed
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add index.html
-          git commit -m "Fix broken button JavaScript syntax"
-          git push
+          if git diff --cached --quiet; then
+            echo "No index.html change needed"
+          else
+            git commit -m "Fix broken button JavaScript syntax"
+            git push
+          fi
