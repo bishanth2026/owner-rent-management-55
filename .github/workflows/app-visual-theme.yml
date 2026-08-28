@@ -17,6 +17,21 @@ jobs:
         with:
           fetch-depth: 1
 
+      - name: Repair report HTML script string
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          text = p.read_text(encoding='utf-8')
+          old = '+"<script src="visual-theme.js?v=1"></script>\n</body></html>";'
+          new = '+"<script src=\'visual-theme.js?v=1\'><\\/script>\n</body></html>";'
+          if old in text:
+              text = text.replace(old, new, 1)
+              p.write_text(text, encoding='utf-8')
+              print('Repaired broken report script string')
+          else:
+              print('Report script string already repaired or pattern not present')
+
       - name: Add visual theme to index.html
         shell: python
         run: |
@@ -42,6 +57,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No HTML changes required"
           else
-            git commit -m "Add colorful visual theme to all app pages"
+            git commit -m "Repair broken report HTML script string"
             git push
           fi
