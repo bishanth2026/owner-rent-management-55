@@ -1,0 +1,33 @@
+name: Fix button JavaScript syntax
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove invalid script tag from generated report string
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          text = p.read_text(encoding='utf-8')
+          bad = '<script src="visual-theme.js?v=1"></script>\\n</body></html>'
+          if bad not in text:
+              raise SystemExit('Expected broken JavaScript fragment was not found; no changes made.')
+          text = text.replace(bad, '</body></html>', 1)
+          p.write_text(text, encoding='utf-8')
+          print('Fixed invalid nested script tag in report HTML string.')
+      - name: Commit fix
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git commit -m "Fix broken button JavaScript syntax"
+          git push
