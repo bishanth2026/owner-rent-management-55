@@ -18,7 +18,7 @@ jobs:
           from pathlib import Path
           p = Path('index.html')
           text = p.read_text(encoding='utf-8')
-          bad = '<script src="visual-theme.js?v=1"></script>\\n</body></html>'
+          bad = '<script src="visual-theme.js?v=1"></script>\n</body></html>'
           if bad not in text:
               print('Broken fragment not present; nothing to change.')
           else:
