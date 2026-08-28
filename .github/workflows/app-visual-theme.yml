@@ -21,21 +21,24 @@ jobs:
         shell: python
         run: |
           from pathlib import Path
-          import re
           p = Path('index.html')
           text = p.read_text(encoding='utf-8')
           start = text.find('let content=')
           end = text.find('  let blob=', start)
           if start >= 0 and end > start:
               segment = text[start:end]
-              pattern = r'(\+document\.querySelector\(\\?"#reportPrintArea \.tablewrap\\?"\)\.outerHTML\+\").*?(?=\n  let blob=)'
-              fixed, count = re.subn(pattern, r'\1</body></html>";', segment, count=1, flags=re.S)
-              if count:
-                  text = text[:start] + fixed + text[end:]
-                  p.write_text(text, encoding='utf-8')
-                  print('Repaired report HTML string without changing app logic')
+              anchor = 'outerHTML+'
+              pos = segment.rfind(anchor)
+              if pos >= 0:
+                  fixed = segment[:pos + len(anchor)] + '"</body></html>";\n'
+                  if fixed != segment:
+                      text = text[:start] + fixed + text[end:]
+                      p.write_text(text, encoding='utf-8')
+                      print('Finalized safe report HTML string')
+                  else:
+                      print('Report HTML tail already safe')
               else:
-                  print('Report HTML tail already safe')
+                  print('Report HTML anchor not found; no change made')
           else:
               print('Report generator boundaries not found; no change made')
 
@@ -64,6 +67,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No HTML changes required"
           else
-            git commit -m "Repair report HTML generation safely"
+            git commit -m "Finalize report HTML script fix"
             git push
           fi
