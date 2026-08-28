@@ -34,30 +34,40 @@ jobs:
                   if fixed != segment:
                       text = text[:start] + fixed + text[end:]
                       p.write_text(text, encoding='utf-8')
-                      print('Finalized safe report HTML string')
+                      print('Repaired report HTML generator tail')
                   else:
-                      print('Report HTML tail already safe')
+                      print('Report HTML generator tail already safe')
               else:
-                  print('Report HTML anchor not found; no change made')
+                  print('Report HTML anchor not found')
           else:
-              print('Report generator boundaries not found; no change made')
+              print('Report generator boundaries not found')
 
-      - name: Add visual theme to index.html
+      - name: Ensure visual theme script is loaded at document end
         shell: python
         run: |
           from pathlib import Path
           p = Path('index.html')
           text = p.read_text(encoding='utf-8')
           marker = '<script src="visual-theme.js?v=1"></script>'
-          if marker not in text:
-              if '</body>' in text:
-                  text = text.replace('</body>', marker + '\n</body>', 1)
+          if marker in text:
+              first = text.find(marker)
+              last_body = text.rfind('</body>')
+              if first < last_body:
+                  text = text[:first] + text[first + len(marker):]
+                  last_body = text.rfind('</body>')
+                  text = text[:last_body] + marker + '\n' + text[last_body:]
+                  p.write_text(text, encoding='utf-8')
+                  print('Moved visual theme script to the real document end')
+              else:
+                  print('Visual theme script is already at document end')
+          else:
+              last_body = text.rfind('</body>')
+              if last_body >= 0:
+                  text = text[:last_body] + marker + '\n' + text[last_body:]
               else:
                   text += '\n' + marker + '\n'
               p.write_text(text, encoding='utf-8')
-              print('Visual theme script added to index.html')
-          else:
-              print('Visual theme script already present')
+              print('Added visual theme script at document end')
 
       - name: Commit HTML update
         run: |
@@ -67,6 +77,6 @@ jobs:
           if git diff --cached --quiet; then
             echo "No HTML changes required"
           else
-            git commit -m "Finalize report HTML script fix"
+            git commit -m "Fix visual theme injection without changing app logic"
             git push
           fi
