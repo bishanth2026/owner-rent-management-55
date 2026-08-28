@@ -27,15 +27,14 @@ jobs:
           new1 = '+"<script src=\'visual-theme.js?v=1\'><\\/script>\n</body></html>";'
           old2 = '+"<script src="visual-theme.js?v=1"></script>\n</body></html>";'
           new2 = '+"<script src=\'visual-theme.js?v=1\'><\\/script>\n</body></html>";'
+          old3 = '<\\/script>\n<script src="visual-theme.js?v=1"></script>\n</body></html>";'
+          new3 = '<\\/script>\n</body></html>";'
           changed = False
-          if old1 in text:
-              text = text.replace(old1, new1, 1)
-              changed = True
-              print('Removed duplicate broken script tag from report string')
-          if old2 in text:
-              text = text.replace(old2, new2, 1)
-              changed = True
-              print('Repaired broken report script string')
+          for old, new in ((old1,new1),(old2,new2),(old3,new3)):
+              if old in text:
+                  text = text.replace(old, new, 1)
+                  changed = True
+                  print('Removed/repaired broken report script markup')
           if changed:
               p.write_text(text, encoding='utf-8')
           else:
