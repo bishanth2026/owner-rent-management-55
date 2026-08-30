@@ -31,16 +31,11 @@ window.BiznexcoAuth = {
   restoreSession, clearSession, getLastPage, setLastPage, clearLastPage,
   initAuthListener,
   resetTenantPassword, manageTenant, createOwner, manageOwner,
-  // Payment APIs used by the tenant and owner portal pages.
   tenantSubmitPayment, tenantListOwnPayments, updateOwnPayment,
   ownerListPayments, ownerSubmitPayment, ownerUpdatePayment, ownerDeletePayment,
   toLegacyPaymentShape,
 };
 
-// Compatibility bridge for the existing index.html payment handlers.
-// The payment module was already imported correctly above, but the page calls
-// window.BiznexcoPayments.*. Expose the same functions under that namespace
-// without changing any payment UI, database logic, or existing handlers.
 window.BiznexcoPayments = {
   tenantSubmitPayment, tenantListOwnPayments, updateOwnPayment,
   ownerListPayments, ownerSubmitPayment, ownerUpdatePayment, ownerDeletePayment,
@@ -195,10 +190,6 @@ async function handleTenantCreateClick(button, isSuperAdminButton = false) {
   }
 }
 
-// The tenant page is rendered dynamically. This delegated fallback guarantees
-// that the Add Tenant control remains functional even if a render replaces its
-// original handler. It intercepts only the tenant-create buttons and leaves
-// every other control untouched.
 document.addEventListener('click', (event) => {
   const target = event.target?.closest?.('#addT, #superAdminAddT');
   if (!target || target.dataset.biznexcoHandled === '1') return;
@@ -244,6 +235,17 @@ function ensureSuperAdminLoginEntry(){
   roleBox.appendChild(btn);
 }
 
+// Tenant Ledger export actions are loaded dynamically so the existing index.html
+// structure and ledger calculations remain untouched.
+function loadTenantLedgerActions(){
+  if(document.getElementById('biznexcoLedgerActionsScript')) return;
+  const script=document.createElement('script');
+  script.id='biznexcoLedgerActionsScript';
+  script.src='./ledger-actions.js?v=1';
+  script.defer=true;
+  document.head.appendChild(script);
+}
+
 window.addEventListener('biznexco-auth-ready',markSuperAdminNavigation);
 supabase.auth.onAuthStateChange((event)=>{
   if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION') setTimeout(markSuperAdminNavigation,0);
@@ -263,4 +265,5 @@ else startTenantUIObserver();
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureSuperAdminLoginEntry, { once:true });
 else ensureSuperAdminLoginEntry();
 
+loadTenantLedgerActions();
 window.dispatchEvent(new Event('biznexco-auth-ready'));
