@@ -79,6 +79,26 @@ async function markSuperAdminNavigation(){
   }
 }
 
+// Add a discreet Super Admin login entry to the public login screen.
+// This does not alter Owner/Tenant authentication or navigation handlers.
+function addSuperAdminLoginLink(){
+  try{
+    const loginCard = document.querySelector('#login .login-card');
+    if(!loginCard || loginCard.querySelector('[data-super-admin-login-link]')) return;
+
+    const link = document.createElement('a');
+    link.href = './super-admin.html';
+    link.textContent = 'Super Admin Login';
+    link.setAttribute('data-super-admin-login-link','true');
+    link.style.cssText = 'display:block;text-align:center;margin-top:16px;color:#1d4ed8;font-size:12px;font-weight:700;text-decoration:none;cursor:pointer;';
+    link.addEventListener('mouseenter',()=>{link.style.textDecoration='underline';});
+    link.addEventListener('mouseleave',()=>{link.style.textDecoration='none';});
+    loginCard.appendChild(link);
+  }catch(e){
+    console.debug('Super Admin login link skipped:',e);
+  }
+}
+
 // The previous implementation installed a capture-phase click handler that
 // stopped the app's normal tab handlers and forced a full index.html reload.
 // That caused Super Admin tabs to appear non-functional. It also used a
@@ -86,6 +106,8 @@ async function markSuperAdminNavigation(){
 // keep Chrome's main thread busy and produce "Page Unresponsive".
 // The normal buildNav()/renderPage() handlers are now the only tab handlers.
 window.addEventListener('biznexco-auth-ready',markSuperAdminNavigation);
+window.addEventListener('DOMContentLoaded',addSuperAdminLoginLink);
+setTimeout(addSuperAdminLoginLink,500);
 
 supabase.auth.onAuthStateChange((event)=>{
   if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION'){
