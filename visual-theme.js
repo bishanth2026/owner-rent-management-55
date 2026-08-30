@@ -85,6 +85,9 @@
             '<div><label>Tenant Username (login)</label><input id="ceUser" autocomplete="off" value="' + esc(t.username || '') + '"></div>' +
             '<div><label>New Password <span class="muted">(leave blank to keep current)</span></label><div class="password-wrap"><input id="cePassword" type="password" autocomplete="new-password" placeholder="Enter new password"><button type="button" class="password-eye" id="cePasswordEye" aria-label="Show password">◉</button></div></div>' +
           '</div>' +
+          '<div class="formgrid" style="margin-top:10px">' +
+            '<div><label>Tenant WhatsApp Number</label><input id="ceWhatsApp" type="tel" inputmode="tel" autocomplete="tel" placeholder="e.g. 919876543210" value="' + esc(t.contactNumber || '') + '"><div class="muted">Use country code, e.g. 919876543210</div></div>' +
+          '</div>' +
           '<div id="ceMsg" style="margin-top:10px"></div>' +
           '<div class="modal-actions"><button type="button" class="secondary" id="ceCancel">Cancel</button><button type="button" class="primary" id="ceSave">Save Changes</button></div>';
         host.classList.add('show');
@@ -109,6 +112,7 @@
           var start = document.getElementById('ceStart').value;
           var username = document.getElementById('ceUser').value.trim().toLowerCase();
           var password = document.getElementById('cePassword').value;
+          var contactNumber = document.getElementById('ceWhatsApp').value.trim();
 
           if (!name || !rent || rent <= 0 || !start || !username) {
             msg.innerHTML = '<div class="notice error">Please enter all required tenant fields, including username.</div>';
@@ -126,7 +130,8 @@
               name: name,
               unit_label: unit,
               monthly_rent: rent,
-              rent_start_date: start
+              rent_start_date: start,
+              contact_number: contactNumber
             });
             await window.BiznexcoAuth.manageTenant('update_credentials', {
               tenantId: id,
