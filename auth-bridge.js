@@ -31,6 +31,10 @@ window.BiznexcoAuth = {
   restoreSession, clearSession, getLastPage, setLastPage, clearLastPage,
   initAuthListener,
   resetTenantPassword, manageTenant, createOwner, manageOwner,
+  // Payment APIs used by the tenant and owner portal pages.
+  tenantSubmitPayment, tenantListOwnPayments, updateOwnPayment,
+  ownerListPayments, ownerSubmitPayment, ownerUpdatePayment, ownerDeletePayment,
+  toLegacyPaymentShape,
 };
 window.BiznexcoData = {
   listActiveTenants, listAllTenantsForOwner, getTenantById,
