@@ -7,13 +7,34 @@
   function getLedgerData(){
     const s=document.getElementById('lTenant'),d=document.getElementById('lDate');
     const tenantName=s&&s.options[s.selectedIndex]?text(s.options[s.selectedIndex].textContent):'';
+    const tenantId=s?.value||'';
     const asOf=d?d.value:'';
     const table=document.querySelector('#lRows')?.closest('table');
     const rows=[];
     table?.querySelectorAll('tbody tr').forEach(tr=>{const cells=Array.from(tr.querySelectorAll('td')).map(td=>text(td.textContent));if(cells.length)rows.push(cells);});
     const summary=[];const box=document.getElementById('lSummary');
     box?.querySelectorAll('.card').forEach(card=>{const label=text(card.querySelector('.label')?.textContent||'');const value=text(card.querySelector('.value')?.textContent||'');if(label||value)summary.push({label,value});});
-    return {tenantName,asOf,rows,summary};
+    return {tenantId,tenantName,asOf,rows,summary};
+  }
+  async function getSelectedTenantRecord(){
+    const d=getLedgerData();
+    try{
+      if(window.BiznexcoData?.getTenantById && d.tenantId){
+        const row=await window.BiznexcoData.getTenantById(d.tenantId);
+        if(row) return row;
+      }
+      if(window.BiznexcoData?.listActiveTenants){
+        const rows=await window.BiznexcoData.listActiveTenants();
+        return (rows||[]).find(r=>String(r.id)===String(d.tenantId)||text(r.name)===d.tenantName)||null;
+      }
+    }catch(e){console.warn('Unable to load tenant contact number:',e);}
+    return null;
+  }
+  function normalizeWhatsAppNumber(value){
+    let n=String(value||'').replace(/\D/g,'');
+    if(n.length===10) n='91'+n;
+    else if(n.length===11 && n.startsWith('0')) n='91'+n.slice(1);
+    return n;
   }
   function buildWhatsAppText(){
     const d=getLedgerData();let m='BIZNEXCO RENT MANAGEMENT\nTenant Ledger\n';
@@ -33,9 +54,16 @@
     popup.document.write('<!doctype html><html><head><meta charset="utf-8"><title>Tenant Ledger - '+esc(data.tenantName)+'</title><style>*{box-sizing:border-box}body{margin:0;padding:28px;font-family:Arial,sans-serif;color:#0f172a;background:#fff}h1{font-size:24px;margin:0 0 6px}.meta{font-size:12px;color:#64748b;margin-bottom:18px}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}.card{border:1px solid #e2e8f0;border-radius:10px;padding:12px}.label{font-size:11px;color:#64748b}.value{font-size:18px;font-weight:800;margin-top:5px}table{width:100%;border-collapse:collapse}th,td{padding:9px;border-bottom:1px solid #e2e8f0;text-align:left;font-size:12px;vertical-align:top}th{background:#f8fafc;color:#475569} @media print{body{padding:12mm}.card{break-inside:avoid}tr{break-inside:avoid}.summary{grid-template-columns:repeat(4,1fr)}} </style></head><body><h1>BIZNEXCO Rent Management — Tenant Ledger</h1><div class="meta">Tenant: '+esc(data.tenantName)+(data.asOf?' &nbsp;|&nbsp; As of: '+esc(data.asOf): '')+'</div>'+summaryHtml+'<table><thead><tr><th>Date</th><th>Particulars</th><th>Rent Due</th><th>Payment</th><th>Running Balance</th></tr></thead><tbody>'+rows+'</tbody></table><script>window.onload=function(){setTimeout(function(){window.print()},250)};<\/script></body></html>');
     popup.document.close();
   }
-  function sendLedgerWhatsApp(){
-    const d=getLedgerData();if(!d.rows.length&&!d.summary.length){alert('Please load the Tenant Ledger first.');return;}
-    window.open('https://wa.me/?text='+encodeURIComponent(buildWhatsAppText()),'_blank');
+  async function sendLedgerWhatsApp(){
+    const d=getLedgerData();
+    if(!d.rows.length&&!d.summary.length){alert('Please load the Tenant Ledger first.');return;}
+    const tenant=await getSelectedTenantRecord();
+    const number=normalizeWhatsAppNumber(tenant?.contact_number || tenant?.contactNumber || '');
+    if(!number){
+      alert('WhatsApp number is not saved for this tenant. Please edit the tenant and enter the WhatsApp number first.');
+      return;
+    }
+    window.open('https://wa.me/'+number+'?text='+encodeURIComponent(buildWhatsAppText()),'_blank');
   }
   function addButtons(){
     const refresh=document.getElementById('lRefresh');if(!refresh||document.getElementById('lSavePdf')||document.getElementById('lWhatsApp'))return;
