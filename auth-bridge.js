@@ -10,7 +10,8 @@ import {
   restoreSession, clearSession, getLastPage, setLastPage, clearLastPage,
 } from './lib/sessionManager.js';
 import { initAuthListener } from './lib/authListener.js';
-import { resetTenantPassword, createTenant, manageTenant } from './lib/edgeFunctions.js';
+import { resetTenantPassword, createTenant, manageTenant, createOwner, manageOwner } from './lib/edgeFunctions.js';
+import { superAdminListProfiles, superAdminListTenants, superAdminListPayments, superAdminListProperties, superAdminListUnits } from './lib/superAdmin.js';
 import {
   listActiveTenants, listAllTenantsForOwner, getTenantById,
   updateTenantEditableFields, deactivateTenant, reactivateTenant,
@@ -29,12 +30,13 @@ window.BiznexcoAuth = {
   tenantSignIn, tenantSignOut, fetchOwnTenantRecord, updateOwnContactInfo,
   restoreSession, clearSession, getLastPage, setLastPage, clearLastPage,
   initAuthListener,
-  resetTenantPassword, createTenant, manageTenant,
+  resetTenantPassword, createTenant, manageTenant, createOwner, manageOwner, manageAdminTenant,
 };
 window.BiznexcoData = {
   listActiveTenants, listAllTenantsForOwner, getTenantById,
   updateTenantEditableFields, deactivateTenant, reactivateTenant,
   toLegacyTenantShape, migrateLegacyTenants,
+  superAdminListProfiles, superAdminListTenants, superAdminListPayments, superAdminListProperties, superAdminListUnits,
 };
 window.BiznexcoPayments = {
   tenantSubmitPayment, tenantListOwnPayments, updateOwnPayment,

@@ -1144,7 +1144,9 @@ function activeAggregateTenants(){
 }
 function status(a,p){let b=a-p;if(b>0.005)return"<span class='badge red'>PENDING</span>";if(b<-0.005)return"<span class='badge blue'>ADVANCE</span>";return"<span class='badge green'>PAID</span>"}
 function loginMsg(t,cls="notice"){$("loginMsg").innerHTML=t?"<div class='notice "+cls+"'>"+t+"</div>":""}
-function buildNav(role){let items=role==="owner"?[
+function buildNav(role){let items=role==="super_admin"?[
+["admin_dashboard","Dashboard"],["admin_owners","Owners"],["admin_tenants","Tenants"],["admin_payments","Payments"],["admin_reports","Reports"]
+]:role==="owner"?[
 ["dashboard","Dashboard"],["tenants","Tenants"],["payments","Payments"],["ledger","Tenant Ledger"],["bankrecon","🏦 Bank Reconciliation"],["reports","Reports"],["settings","Settings"]
 ]:[["myaccount","My Account"],["enterpayment","Enter Payment"],["history","My Payments"]];
 $("nav").innerHTML=items.map((x,i)=>"<button type='button' class='"+(i===0?"active":"")+"' data-page='"+x[0]+"'>"+x[1]+"</button>").join("");
@@ -1167,7 +1169,7 @@ function hideBootLoading(){
 }
 function persistSession(page){
   if(!session)return;
-  session.lastPage=page||session.lastPage||(session.role==="owner"?"dashboard":"myaccount");
+  session.lastPage=page||session.lastPage||(session.role==="super_admin"?"admin_dashboard":session.role==="owner"?"dashboard":"myaccount");
   window.BiznexcoAuth.setLastPage(session.lastPage);
 }
 function clearSession(){
@@ -1178,7 +1180,7 @@ async function showLoggedIn(page){
   $("login").style.display="none";
   $("app").style.display="block";
   buildNav(session.role);
-  const target=page||(session.role==="owner"?"dashboard":"myaccount");
+  const target=page||(session.role==="super_admin"?"admin_dashboard":session.role==="owner"?"dashboard":"myaccount");
   document.querySelectorAll("#nav button").forEach(x=>x.classList.toggle("active",x.dataset.page===target));
   session.lastPage=target;
   persistSession(target);
@@ -1883,7 +1885,117 @@ async function tenantHistory(){
  document.querySelectorAll(".editMyP").forEach(b=>b.onclick=()=>editPayment(b.dataset.id));
 }
 
-async function renderPage(p){if(!session)return;if(session.role==="owner"){if(p==="dashboard")return ownerDashboard();if(p==="tenants")return ownerTenants();if(p==="payments")return ownerPayments();if(p==="ledger")return ownerLedger();if(p==="bankrecon")return ownerBankReconciliation();if(p==="reports")return ownerReports();if(p==="settings")return ownerSettings()}else{if(p==="myaccount")return tenantHome();if(p==="enterpayment")return tenantPayment();if(p==="history")return tenantHistory()}}
+
+// ============================================================
+// SUPER ADMIN — isolated control panel
+// Existing Owner/Tenant pages and functions are not modified.
+// ============================================================
+let adminCache = { profiles: [], tenants: [], payments: [], properties: [], units: [] };
+
+function adminEsc(v){
+  return String(v == null ? '' : v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function adminOwnerMap(){
+  const m={};
+  adminCache.profiles.forEach(p=>{if(p.role==='owner')m[p.id]=p;});
+  return m;
+}
+async function loadAdminData(){
+  const [profiles,tenants,payments,properties,units] = await Promise.all([
+    window.BiznexcoData.superAdminListProfiles(),
+    window.BiznexcoData.superAdminListTenants(),
+    window.BiznexcoData.superAdminListPayments(),
+    window.BiznexcoData.superAdminListProperties(),
+    window.BiznexcoData.superAdminListUnits()
+  ]);
+  adminCache={profiles,tenants,payments,properties,units};
+}
+function adminShell(title, subtitle, body, actions=''){
+  $("main").innerHTML="<section class='page active'>"+
+    "<div class='top'><div><h2>"+adminEsc(title)+"</h2><div class='muted'>"+adminEsc(subtitle)+"</div></div>"+
+    "<div style='display:flex;gap:8px;align-items:center'>"+actions+"<button type='button' class='secondary' id='adminLogout'>Logout</button></div></div>"+
+    body+"</section>";
+  $("adminLogout").onclick=logout;
+}
+async function superAdminDashboard(){
+  try{ await loadAdminData(); }catch(e){ adminShell("Super Admin Dashboard","Secure system control", "<div class='notice error'>"+adminEsc(e.message||e)+"</div>"); return; }
+  const owners=adminCache.profiles.filter(x=>x.role==='owner').length;
+  const activeTenants=adminCache.tenants.filter(x=>x.is_active).length;
+  const totalRent=adminCache.tenants.filter(x=>x.is_active).reduce((a,x)=>a+Number(x.monthly_rent||0),0);
+  const totalPayments=adminCache.payments.reduce((a,x)=>a+Number(x.amount||0),0);
+  const cards=[
+    ["Owners",owners],["Tenants",adminCache.tenants.length],["Active Tenants",activeTenants],
+    ["Properties",adminCache.properties.length],["Monthly Rent",totalRent.toFixed(2)],["Payments Recorded",totalPayments.toFixed(2)]
+  ];
+  adminShell("Super Admin Dashboard","Full system overview and administration",
+    "<div class='cards'>"+cards.map(c=>"<div class='card'><div class='muted'>"+c[0]+"</div><h2>"+adminEsc(c[1])+"</h2></div>").join("")+"</div>"+
+    "<div class='card' style='margin-top:14px'><h3>System access</h3><p class='muted'>You are signed in as Super Admin. This area is isolated from the existing Owner and Tenant dashboards.</p>"+
+    "<div style='display:flex;flex-wrap:wrap;gap:8px;margin-top:10px'><button class='primary' id='goOwners'>Manage Owners</button><button class='secondary' id='goTenants'>View All Tenants</button><button class='secondary' id='goPayments'>View All Payments</button></div></div>");
+  $("goOwners").onclick=()=>renderPage("admin_owners");
+  $("goTenants").onclick=()=>renderPage("admin_tenants");
+  $("goPayments").onclick=()=>renderPage("admin_payments");
+}
+async function superAdminOwners(){
+  try{await loadAdminData();}catch(e){adminShell("Owners","Super Admin only","<div class='notice error'>"+adminEsc(e.message||e)+"</div>");return;}
+  const owners=adminCache.profiles.filter(x=>x.role==='owner');
+  const tenantCounts={}; adminCache.tenants.forEach(t=>tenantCounts[t.owner_id]=(tenantCounts[t.owner_id]||0)+1);
+  const rows=owners.map(o=>"<tr><td>"+adminEsc(o.full_name||"—")+"</td><td>"+adminEsc(o.email||"—")+"</td><td>"+(tenantCounts[o.id]||0)+"</td><td><button class='secondary adminResetOwner' data-id='"+adminEsc(o.id)+"'>Reset Password</button> <button class='secondary adminBanOwner' data-id='"+adminEsc(o.id)+"'>Deactivate</button></td></tr>").join("");
+  adminShell("Owners","Create and manage Owner accounts",
+    "<div class='card'><div class='tablewrap'><table><thead><tr><th>Name</th><th>Email</th><th>Tenants</th><th>Actions</th></tr></thead><tbody>"+(rows||"<tr><td colspan='4'>No Owner accounts found.</td></tr>")+"</tbody></table></div></div>",
+    "<button type='button' class='primary' id='createOwnerBtn'>+ Create Owner</button>");
+  $("createOwnerBtn").onclick=async()=>{
+    const fullName=prompt("Owner full name:"); if(fullName===null)return;
+    const email=prompt("Owner email:"); if(email===null)return;
+    const password=prompt("Temporary password (minimum 6 characters):"); if(password===null)return;
+    try{await window.BiznexcoAuth.createOwner({fullName:fullName.trim(),email:email.trim(),password}); alert("Owner account created successfully."); await superAdminOwners();}
+    catch(e){alert(e.message||e);}
+  };
+  document.querySelectorAll(".adminResetOwner").forEach(b=>b.onclick=async()=>{
+    const password=prompt("Enter new password (minimum 6 characters):"); if(password===null)return;
+    try{await window.BiznexcoAuth.manageOwner("reset_password",{ownerId:b.dataset.id,newPassword:password});alert("Owner password updated.");}
+    catch(e){alert(e.message||e);}
+  });
+  document.querySelectorAll(".adminBanOwner").forEach(b=>b.onclick=async()=>{
+    if(!confirm("Deactivate this Owner login?"))return;
+    try{await window.BiznexcoAuth.manageOwner("deactivate",{ownerId:b.dataset.id});alert("Owner login deactivated.");}
+    catch(e){alert(e.message||e);}
+  });
+}
+async function superAdminTenants(){
+  try{await loadAdminData();}catch(e){adminShell("Tenants","Super Admin only","<div class='notice error'>"+adminEsc(e.message||e)+"</div>");return;}
+  const om=adminOwnerMap();
+  const rows=adminCache.tenants.map(t=>"<tr><td>"+adminEsc(t.name||"—")+"</td><td>"+adminEsc(t.username||"—")+"</td><td>"+adminEsc(om[t.owner_id]?.full_name||om[t.owner_id]?.email||"—")+"</td><td>"+adminEsc(t.unit_label||"—")+"</td><td>"+Number(t.monthly_rent||0).toFixed(2)+"</td><td>"+(t.is_active?"Active":"Inactive")+"</td><td><button class='secondary adminTenantReset' data-id='"+adminEsc(t.id)+"'>Reset Password</button> <button class='secondary adminTenantToggle' data-id='"+adminEsc(t.id)+"' data-active='"+(t.is_active?"1":"0")+"'>"+(t.is_active?"Deactivate":"Reactivate")+"</button></td></tr>").join("");
+  adminShell("Tenants","All tenant accounts across every Owner",
+    "<div class='card'><div class='tablewrap'><table><thead><tr><th>Tenant</th><th>Username</th><th>Owner</th><th>Unit</th><th>Monthly Rent</th><th>Status</th><th>Actions</th></tr></thead><tbody>"+(rows||"<tr><td colspan='7'>No tenants found.</td></tr>")+"</tbody></table></div></div>");
+  document.querySelectorAll(".adminTenantReset").forEach(b=>b.onclick=async()=>{
+    const password=prompt("Enter new tenant password (minimum 6 characters):"); if(password===null)return;
+    try{await window.BiznexcoAuth.manageAdminTenant("reset_password",{tenantId:b.dataset.id,newPassword:password});alert("Tenant password updated.");}
+    catch(e){alert(e.message||e);}
+  });
+  document.querySelectorAll(".adminTenantToggle").forEach(b=>b.onclick=async()=>{
+    const active=b.dataset.active==="1", action=active?"deactivate":"reactivate";
+    if(!confirm((active?"Deactivate":"Reactivate")+" this tenant login?"))return;
+    try{await window.BiznexcoAuth.manageAdminTenant(action,{tenantId:b.dataset.id});await superAdminTenants();}
+    catch(e){alert(e.message||e);}
+  });
+}
+async function superAdminPayments(){
+  try{await loadAdminData();}catch(e){adminShell("Payments","Super Admin only","<div class='notice error'>"+adminEsc(e.message||e)+"</div>");return;}
+  const om=adminOwnerMap(), tm={}; adminCache.tenants.forEach(t=>tm[t.id]=t);
+  const rows=adminCache.payments.map(p=>"<tr><td>"+adminEsc(p.date||"—")+"</td><td>"+adminEsc(tm[p.tenant_id]?.name||"—")+"</td><td>"+adminEsc(om[p.owner_id]?.full_name||om[p.owner_id]?.email||"—")+"</td><td>"+Number(p.amount||0).toFixed(2)+"</td><td>"+adminEsc(p.bank||"—")+"</td><td>"+adminEsc(p.ref||"—")+"</td></tr>").join("");
+  adminShell("Payments","All payment records across the system",
+    "<div class='card'><div class='tablewrap'><table><thead><tr><th>Date</th><th>Tenant</th><th>Owner</th><th>Amount</th><th>Bank</th><th>Reference</th></tr></thead><tbody>"+(rows||"<tr><td colspan='6'>No payments found.</td></tr>")+"</tbody></table></div></div>");
+}
+async function superAdminReports(){
+  try{await loadAdminData();}catch(e){adminShell("Reports","Super Admin only","<div class='notice error'>"+adminEsc(e.message||e)+"</div>");return;}
+  const om=adminOwnerMap(), stats={};
+  adminCache.tenants.forEach(t=>{const o=t.owner_id; if(!stats[o])stats[o]={tenants:0,rent:0,payments:0};stats[o].tenants++;stats[o].rent+=Number(t.monthly_rent||0);});
+  adminCache.payments.forEach(p=>{if(stats[p.owner_id])stats[p.owner_id].payments+=Number(p.amount||0);});
+  const rows=Object.keys(stats).map(id=>"<tr><td>"+adminEsc(om[id]?.full_name||om[id]?.email||"—")+"</td><td>"+stats[id].tenants+"</td><td>"+stats[id].rent.toFixed(2)+"</td><td>"+stats[id].payments.toFixed(2)+"</td></tr>").join("");
+  adminShell("Reports","Owner-wise system summary",
+    "<div class='card'><div class='tablewrap'><table><thead><tr><th>Owner</th><th>Tenants</th><th>Monthly Rent</th><th>Payments Recorded</th></tr></thead><tbody>"+(rows||"<tr><td colspan='4'>No report data.</td></tr>")+"</tbody></table></div></div>");
+}
+async function renderPage(p){if(!session)return;if(session.role==="super_admin"){if(p==="admin_dashboard")return superAdminDashboard();if(p==="admin_owners")return superAdminOwners();if(p==="admin_tenants")return superAdminTenants();if(p==="admin_payments")return superAdminPayments();if(p==="admin_reports")return superAdminReports();}else if(session.role==="owner"){if(p==="dashboard")return ownerDashboard();if(p==="tenants")return ownerTenants();if(p==="payments")return ownerPayments();if(p==="ledger")return ownerLedger();if(p==="bankrecon")return ownerBankReconciliation();if(p==="reports")return ownerReports();if(p==="settings")return ownerSettings()}else{if(p==="myaccount")return tenantHome();if(p==="enterpayment")return tenantPayment();if(p==="history")return tenantHistory()}}
 async function initializeApp(){
   load(); // legacy local arrays still loaded — untouched per migration-safety rule
   setupLogin();
