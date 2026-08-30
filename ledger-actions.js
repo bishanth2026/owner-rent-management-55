@@ -30,9 +30,7 @@
         const match=(rows||[]).find(r=>String(r.id)===String(d.tenantId)||text(r.name)===d.tenantName);
         if(match) return match;
       }
-      // Final source: the authenticated Supabase client, still restricted to
-      // the exact selected tenant. This keeps WhatsApp lookup tied to the
-      // saved tenant account and does not use a manually entered number.
+      // Final source: authenticated Supabase client, restricted to the exact selected tenant.
       const supabase=window.BiznexcoAuth?.supabase;
       if(supabase && d.tenantId){
         const {data,error}=await supabase.from('tenants').select('id,name,contact_number').eq('id',d.tenantId).maybeSingle();
@@ -77,12 +75,31 @@
     }
     window.open('https://wa.me/'+number+'?text='+encodeURIComponent(buildWhatsAppText()),'_blank');
   }
+  function bindWhatsAppButton(){
+    const btn=document.getElementById('lWhatsApp');
+    if(!btn)return false;
+    if(btn.dataset.tenantAutoWhatsApp==='1')return true;
+    // Remove the old manual-number handler without changing the button's appearance.
+    const replacement=btn.cloneNode(true);
+    replacement.removeAttribute('onclick');
+    Array.from(replacement.attributes).forEach(a=>{if(/^on/i.test(a.name))replacement.removeAttribute(a.name);});
+    replacement.dataset.tenantAutoWhatsApp='1';
+    btn.replaceWith(replacement);
+    replacement.addEventListener('click',function(e){e.preventDefault();e.stopImmediatePropagation();sendLedgerWhatsApp();});
+    return true;
+  }
   function addButtons(){
-    const refresh=document.getElementById('lRefresh');if(!refresh||document.getElementById('lSavePdf')||document.getElementById('lWhatsApp'))return;
+    const refresh=document.getElementById('lRefresh');
+    if(!refresh)return;
+    bindWhatsAppButton();
+    if(document.getElementById('lSavePdf'))return;
     const wrap=document.createElement('div');wrap.className='report-actions no-print';wrap.id='ledgerExportActions';wrap.style.marginTop='8px';
     wrap.innerHTML='<button type="button" class="secondary" id="lSavePdf">📄 Save PDF</button><button type="button" class="secondary" id="lWhatsApp">💬 Send WhatsApp</button>';
-    refresh.parentElement?.appendChild(wrap);document.getElementById('lSavePdf')?.addEventListener('click',saveLedgerPdf);document.getElementById('lWhatsApp')?.addEventListener('click',sendLedgerWhatsApp);
+    refresh.parentElement?.appendChild(wrap);
+    document.getElementById('lSavePdf')?.addEventListener('click',saveLedgerPdf);
+    bindWhatsAppButton();
   }
-  const observer=new MutationObserver(addButtons);function start(){const main=document.getElementById('main');if(!main)return;observer.observe(main,{childList:true,subtree:true});addButtons();}
+  const observer=new MutationObserver(addButtons);
+  function start(){const main=document.getElementById('main');if(!main)return;observer.observe(main,{childList:true,subtree:true});addButtons();}
   if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 })();
