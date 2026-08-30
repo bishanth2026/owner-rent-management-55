@@ -34,8 +34,8 @@ Deno.serve(async (req) => {
 
     const { data: callerProfile } = await adminClient
       .from('profiles').select('role').eq('id', userResp.user.id).single();
-    if (!callerProfile || callerProfile.role !== 'owner') {
-      return json({ error: 'Only owners can create tenants' }, 403);
+    if (!callerProfile || !['owner', 'super_admin'].includes(callerProfile.role)) {
+      return json({ error: 'Only Owners or Super Admin can create tenants' }, 403);
     }
 
     const body = await req.json();
@@ -50,17 +50,20 @@ Deno.serve(async (req) => {
       return json({ error: 'Name, monthly rent, and rent start date are required' }, 400);
     }
 
-    // Case-insensitive duplicate check, made consistent with the database's
-    // case-insensitive unique index (create unique index
-    // idx_tenants_username_lower on public.tenants (lower(username)) — see
-    // phase5.sql). A plain .eq('username', username) here would only catch
-    // duplicates if every existing row happens to already be stored
-    // lowercase; it would miss a pre-existing mixed-case row (e.g.
-    // "ABC101"), let the insert proceed, and then fail with a raw Postgres
-    // unique-violation error instead of this clean 409. Using .ilike()
-    // performs a case-insensitive match equivalent to the DB's
-    // lower(username) comparison; wildcard characters in the username are
-    // escaped first so % / _ can't be used to widen the match.
+    // Owner accounts always create tenants under themselves. Super Admin can
+    // choose the destination Owner explicitly from the tenant creation form.
+    let ownerId = userResp.user.id;
+    if (callerProfile.role === 'super_admin') {
+      ownerId = String(body.ownerId || '').trim();
+      if (!ownerId) return json({ error: 'Please select which Owner this tenant should be recorded under.' }, 400);
+
+      const { data: selectedOwner, error: ownerErr } = await adminClient
+        .from('profiles').select('id, role').eq('id', ownerId).maybeSingle();
+      if (ownerErr || !selectedOwner || selectedOwner.role !== 'owner') {
+        return json({ error: 'The selected Owner is invalid.' }, 400);
+      }
+    }
+
     const escapedUsername = username.replace(/[%_\\]/g, (c) => '\\' + c);
     const { data: existing } = await adminClient
       .from('tenants').select('id').ilike('username', escapedUsername).maybeSingle();
@@ -80,7 +83,7 @@ Deno.serve(async (req) => {
       .from('tenants')
       .insert({
         profile_id: newUser.user.id,
-        owner_id: userResp.user.id,
+        owner_id: ownerId,
         property_id: propertyId || null,
         unit_id: unitId || null,
         name,
@@ -94,12 +97,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (insertErr) {
-      await adminClient.auth.admin.deleteUser(newUser.user.id); // rollback orphaned login
-      // Safety net for a race condition (two near-simultaneous signups
-      // both passing the pre-check above before either commits): Postgres
-      // error code 23505 is a unique-violation. If it's the
-      // lower(username) index specifically, surface the same clean 409
-      // instead of a raw database error message.
+      await adminClient.auth.admin.deleteUser(newUser.user.id);
       if ((insertErr as { code?: string }).code === '23505') {
         return json({ error: 'That username is already taken.' }, 409);
       }
