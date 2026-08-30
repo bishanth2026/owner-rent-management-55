@@ -39,9 +39,6 @@ window.BiznexcoData = {
   superAdminListProfiles, superAdminListTenants, superAdminListPayments, superAdminListProperties, superAdminListUnits,
 };
 
-// Tenant creation is owner-scoped. Owners continue to create tenants under
-// their own account automatically. Super Admins must explicitly select the
-// Owner under whom the new tenant record should be stored.
 async function createTenantWithOwnerSelection(tenantData = {}) {
   let ownerId = tenantData.ownerId || '';
   try {
@@ -79,9 +76,6 @@ async function populateTenantOwnerSelector() {
   }
 }
 
-// Adds the Owner selector only to Super Admin tenant creation. Existing Owner
-// tenant screens are intentionally left unchanged; their owner_id is derived
-// securely by the Edge Function from the signed-in Owner session.
 async function enhanceTenantCreationUI() {
   const addButton = document.getElementById('addT');
   const nameInput = document.getElementById('nName');
@@ -99,9 +93,6 @@ async function enhanceTenantCreationUI() {
   await populateTenantOwnerSelector();
 }
 
-// Super Admin currently has a tenant list but no creation form. Add the form
-// dynamically after that page is rendered so the existing dashboard markup,
-// styling and navigation remain untouched.
 async function ensureSuperAdminTenantCreateForm() {
   const heading = Array.from(document.querySelectorAll('h2')).find(h => h.textContent.trim() === 'Tenants');
   if (!heading || document.getElementById('superAdminAddTenantCard')) return;
@@ -133,79 +124,99 @@ async function ensureSuperAdminTenantCreateForm() {
   if (existingCard) existingCard.before(card); else heading.parentElement?.after(card);
   await populateTenantOwnerSelector();
 
-  document.getElementById('superAdminAddT').onclick = async () => {
-    const msg = document.getElementById('superAdminTenantMsg');
-    const ownerId = document.getElementById('nOwner')?.value || '';
-    const name = document.getElementById('nName')?.value.trim() || '';
-    const unitLabel = document.getElementById('nUnit')?.value.trim() || '';
-    const monthlyRent = Number(document.getElementById('nRent')?.value || 0);
-    const rentStartDate = document.getElementById('nStart')?.value || '';
-    const username = document.getElementById('nUser')?.value.trim() || '';
-    const password = document.getElementById('nPass')?.value || '';
-    const button = document.getElementById('superAdminAddT');
-    if (!ownerId || !name || monthlyRent <= 0 || !rentStartDate || !username || !password) {
-      msg.innerHTML = '<div class="notice error">Select an Owner and enter all required tenant fields.</div>';
-      return;
-    }
-    if (password.length < 6) {
-      msg.innerHTML = '<div class="notice error">Tenant password must be at least 6 characters.</div>';
-      return;
-    }
-    button.disabled = true;
-    try {
-      await createTenantWithOwnerSelection({ ownerId, username, password, name, unitLabel, monthlyRent, rentStartDate });
-      msg.innerHTML = '<div class="notice success">Tenant added successfully under the selected Owner.</div>';
-      ['nName','nUnit','nRent','nStart','nUser','nPass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-      await loadAdminDataForTenantFormRefresh();
-    } catch (e) {
-      msg.innerHTML = '<div class="notice error">' + String(e?.message || e).replace(/</g,'&lt;') + '</div>';
-    } finally {
-      button.disabled = false;
-    }
-  };
+  const button = document.getElementById('superAdminAddT');
+  if (button) button.onclick = () => handleTenantCreateClick(button, true);
 }
 
 async function loadAdminDataForTenantFormRefresh() {
-  // The existing page renderer owns the table refresh. Trigger its current
-  // Tenants tab handler without introducing another navigation handler.
   const active = document.querySelector('#nav button[data-page="admin_tenants"]');
   if (active) await active.click();
 }
 
-// Keep the Super Admin entry point clearly labeled without taking over the
-// existing navigation click handlers. The main app already binds each tab to
-// renderPage(); this helper only changes the visible label.
+async function handleTenantCreateClick(button, isSuperAdminButton = false) {
+  const get = id => document.getElementById(id);
+  const msg = get(isSuperAdminButton ? 'superAdminTenantMsg' : 'tm');
+  const ownerId = get('nOwner')?.value || '';
+  const name = get('nName')?.value.trim() || '';
+  const unitLabel = get('nUnit')?.value.trim() || '';
+  const monthlyRent = Number(get('nRent')?.value || 0);
+  const rentStartDate = get('nStart')?.value || '';
+  const username = get('nUser')?.value.trim() || '';
+  const password = get('nPass')?.value || '';
+
+  const show = (text, cls) => {
+    if (msg) msg.innerHTML = `<div class="notice ${cls}">${String(text).replace(/</g,'&lt;')}</div>`;
+  };
+  if ((isSuperAdminButton && !ownerId) || !name || monthlyRent <= 0 || !rentStartDate || !username || !password) {
+    show(isSuperAdminButton ? 'Select an Owner and enter all required tenant fields.' : 'Enter all tenant fields.', 'error');
+    return;
+  }
+  if (password.length < 6) {
+    show('Tenant password must be at least 6 characters.', 'error');
+    return;
+  }
+
+  button.disabled = true;
+  try {
+    await createTenantWithOwnerSelection({
+      ownerId: ownerId || undefined,
+      username, password, name, unitLabel, monthlyRent, rentStartDate,
+    });
+    show(isSuperAdminButton ? 'Tenant added successfully under the selected Owner.' : 'Tenant added successfully.', 'success');
+    ['nName','nUnit','nRent','nStart','nUser','nPass'].forEach(id => { const el = get(id); if (el) el.value = ''; });
+    if (isSuperAdminButton) {
+      await loadAdminDataForTenantFormRefresh();
+    } else if (typeof window.refreshLocalTenantCache === 'function') {
+      await window.refreshLocalTenantCache();
+      const refresh = document.querySelector('#nav button[data-page="tenants"]');
+      if (refresh) await refresh.click();
+    } else {
+      window.dispatchEvent(new Event('biznexco-tenant-created'));
+    }
+  } catch (e) {
+    show(e?.message || 'Could not add tenant.', 'error');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+// The tenant page is rendered dynamically. This delegated fallback guarantees
+// that the Add Tenant control remains functional even if a render replaces its
+// original handler. It intercepts only the tenant-create buttons and leaves
+// every other control untouched.
+document.addEventListener('click', (event) => {
+  const target = event.target?.closest?.('#addT, #superAdminAddT');
+  if (!target || target.dataset.biznexcoHandled === '1') return;
+  if (target.id === 'addT' && typeof target.onclick === 'function') return;
+  event.preventDefault();
+  event.stopPropagation();
+  target.dataset.biznexcoHandled = '1';
+  handleTenantCreateClick(target, target.id === 'superAdminAddT').finally(() => {
+    delete target.dataset.biznexcoHandled;
+  });
+}, true);
+
 async function markSuperAdminNavigation(){
   try{
     const {data:{user}} = await supabase.auth.getUser();
     if(!user) return;
     const profile = await fetchOwnProfile();
     if(!profile || profile.role !== 'super_admin') return;
-
     const nav = document.getElementById('nav');
     if(!nav) return;
-
     const apply = () => {
       const first = nav.querySelector('button[data-page="admin_dashboard"]');
       if(!first) return false;
       if(first.textContent !== 'Super Admin') first.textContent = 'Super Admin';
       return true;
     };
-
     if(apply()) return;
-
-    const observer = new MutationObserver(() => {
-      if(apply()) observer.disconnect();
-    });
+    const observer = new MutationObserver(() => { if(apply()) observer.disconnect(); });
     observer.observe(nav,{childList:true,subtree:true});
     setTimeout(()=>observer.disconnect(),10000);
-  }catch(e){
-    console.debug('Super Admin navigation label skipped:',e);
-  }
+  }catch(e){ console.debug('Super Admin navigation label skipped:',e); }
 }
 
-// Always provide a dedicated Super Admin entry on the initial login screen.
-// This does not alter Owner/Tenant authentication or their existing controls.
 function ensureSuperAdminLoginEntry(){
   const roleBox = document.querySelector('.login-role');
   if(!roleBox || document.getElementById('superAdminLoginBtn')) return;
@@ -219,16 +230,10 @@ function ensureSuperAdminLoginEntry(){
 }
 
 window.addEventListener('biznexco-auth-ready',markSuperAdminNavigation);
-
 supabase.auth.onAuthStateChange((event)=>{
-  if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION'){
-    setTimeout(markSuperAdminNavigation,0);
-  }
+  if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION') setTimeout(markSuperAdminNavigation,0);
 });
 
-// One guarded observer handles only the tenant creation UI. It never rewrites
-// existing nodes once they have been enhanced, preventing the old main-thread
-// loop that caused Chrome's "Page Unresponsive" dialog.
 const tenantUIObserver = new MutationObserver(() => {
   enhanceTenantCreationUI();
   ensureSuperAdminTenantCreateForm();
@@ -240,10 +245,7 @@ const startTenantUIObserver = () => {
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',startTenantUIObserver,{once:true});
 else startTenantUIObserver();
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', ensureSuperAdminLoginEntry, { once:true });
-} else {
-  ensureSuperAdminLoginEntry();
-}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ensureSuperAdminLoginEntry, { once:true });
+else ensureSuperAdminLoginEntry();
 
 window.dispatchEvent(new Event('biznexco-auth-ready'));
