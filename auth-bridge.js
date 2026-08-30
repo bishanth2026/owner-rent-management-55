@@ -37,8 +37,7 @@ window.BiznexcoAuth = {
 };
 
 window.BiznexcoPayments = {
-  tenantSubmitPayment, tenantListOwnPayments, updateOwnPayment,
-  ownerListPayments, ownerSubmitPayment, ownerUpdatePayment, ownerDeletePayment,
+  tenantSubmitPayment, tenantListOwnPayments, updateOwnPayment, ownerListPayments, ownerSubmitPayment, ownerUpdatePayment, ownerDeletePayment,
   toLegacyPaymentShape,
 };
 
@@ -86,13 +85,29 @@ async function populateTenantOwnerSelector() {
   }
 }
 
+function ensureTenantWhatsAppField(container) {
+  if (!container || document.getElementById('nWhatsApp')) return;
+  const wrap = document.createElement('div');
+  wrap.id = 'nWhatsAppWrap';
+  wrap.innerHTML = '<label for="nWhatsApp">Tenant WhatsApp Number</label><input id="nWhatsApp" type="tel" inputmode="tel" placeholder="e.g. 919876543210"><div class="muted">Use country code, e.g. 919876543210</div>';
+  container.appendChild(wrap);
+}
+
 async function enhanceTenantCreationUI() {
   const addButton = document.getElementById('addT');
   const nameInput = document.getElementById('nName');
-  if (!addButton || !nameInput || document.getElementById('nOwnerWrap')) return;
+  if (!addButton || !nameInput || document.getElementById('nOwnerWrap')) {
+    if (addButton && nameInput && !document.getElementById('nWhatsApp')) {
+      ensureTenantWhatsAppField(nameInput.closest('.formgrid') || addButton.parentElement);
+    }
+    return;
+  }
   let profile;
   try { profile = await fetchOwnProfile(); } catch (_) { return; }
-  if (profile?.role !== 'super_admin') return;
+  if (profile?.role !== 'super_admin') {
+    ensureTenantWhatsAppField(nameInput.closest('.formgrid') || addButton.parentElement);
+    return;
+  }
 
   const ownerWrap = document.createElement('div');
   ownerWrap.id = 'nOwnerWrap';
@@ -100,6 +115,7 @@ async function enhanceTenantCreationUI() {
   const firstFormGrid = nameInput.closest('.formgrid');
   if (firstFormGrid) firstFormGrid.insertBefore(ownerWrap, firstFormGrid.firstElementChild);
   else addButton.parentElement?.before(ownerWrap);
+  ensureTenantWhatsAppField(firstFormGrid || addButton.parentElement);
   await populateTenantOwnerSelector();
 }
 
@@ -127,6 +143,7 @@ async function ensureSuperAdminTenantCreateForm() {
     </div>
     <div class="formgrid" style="margin-top:10px">
       <div><label>Tenant Password (min 6 characters)</label><input id="nPass" type="text"></div>
+      <div><label>Tenant WhatsApp Number</label><input id="nWhatsApp" type="tel" inputmode="tel" placeholder="e.g. 919876543210"><div class="muted">Use country code, e.g. 919876543210</div></div>
     </div>
     <div id="superAdminTenantMsg"></div>
     <div class="actions"><button type="button" class="primary" id="superAdminAddT">Add Tenant</button></div>`;
@@ -153,6 +170,7 @@ async function handleTenantCreateClick(button, isSuperAdminButton = false) {
   const rentStartDate = get('nStart')?.value || '';
   const username = get('nUser')?.value.trim() || '';
   const password = get('nPass')?.value || '';
+  const contactNumber = get('nWhatsApp')?.value.trim() || '';
 
   const show = (text, cls) => {
     if (msg) msg.innerHTML = `<div class="notice ${cls}">${String(text).replace(/</g,'&lt;')}</div>`;
@@ -171,9 +189,10 @@ async function handleTenantCreateClick(button, isSuperAdminButton = false) {
     await createTenantWithOwnerSelection({
       ownerId: ownerId || undefined,
       username, password, name, unitLabel, monthlyRent, rentStartDate,
+      contactNumber,
     });
     show(isSuperAdminButton ? 'Tenant added successfully under the selected Owner.' : 'Tenant added successfully.', 'success');
-    ['nName','nUnit','nRent','nStart','nUser','nPass'].forEach(id => { const el = get(id); if (el) el.value = ''; });
+    ['nName','nUnit','nRent','nStart','nUser','nPass','nWhatsApp'].forEach(id => { const el = get(id); if (el) el.value = ''; });
     if (isSuperAdminButton) {
       await loadAdminDataForTenantFormRefresh();
     } else if (typeof window.refreshLocalTenantCache === 'function') {
@@ -235,8 +254,6 @@ function ensureSuperAdminLoginEntry(){
   roleBox.appendChild(btn);
 }
 
-// Tenant Ledger export actions are loaded dynamically so the existing index.html
-// structure and ledger calculations remain untouched.
 function loadTenantLedgerActions(){
   if(document.getElementById('biznexcoLedgerActionsScript')) return;
   const script=document.createElement('script');
