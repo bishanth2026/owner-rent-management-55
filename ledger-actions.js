@@ -19,15 +19,26 @@
   async function getSelectedTenantRecord(){
     const d=getLedgerData();
     try{
+      // Primary source: the exact tenant selected in Tenant Ledger.
       if(window.BiznexcoData?.getTenantById && d.tenantId){
         const row=await window.BiznexcoData.getTenantById(d.tenantId);
         if(row) return row;
       }
+      // Secondary source: active tenant list, matching by ID or name.
       if(window.BiznexcoData?.listActiveTenants){
         const rows=await window.BiznexcoData.listActiveTenants();
-        return (rows||[]).find(r=>String(r.id)===String(d.tenantId)||text(r.name)===d.tenantName)||null;
+        const match=(rows||[]).find(r=>String(r.id)===String(d.tenantId)||text(r.name)===d.tenantName);
+        if(match) return match;
       }
-    }catch(e){console.warn('Unable to load tenant contact number:',e);}
+      // Final source: the authenticated Supabase client, still restricted to
+      // the exact selected tenant. This keeps WhatsApp lookup tied to the
+      // saved tenant account and does not use a manually entered number.
+      const supabase=window.BiznexcoAuth?.supabase;
+      if(supabase && d.tenantId){
+        const {data,error}=await supabase.from('tenants').select('id,name,contact_number').eq('id',d.tenantId).maybeSingle();
+        if(!error && data) return data;
+      }
+    }catch(e){console.warn('Unable to load tenant WhatsApp number:',e);}
     return null;
   }
   function normalizeWhatsAppNumber(value){
@@ -58,22 +69,11 @@
     const d=getLedgerData();
     if(!d.rows.length&&!d.summary.length){alert('Please load the Tenant Ledger first.');return;}
     const tenant=await getSelectedTenantRecord();
-    let rawNumber=tenant?.contact_number || tenant?.contactNumber || '';
-    let number=normalizeWhatsAppNumber(rawNumber);
+    const rawNumber=tenant?.contact_number || tenant?.contactNumber || tenant?.whatsapp_number || tenant?.whatsappNumber || tenant?.phone || tenant?.mobile || '';
+    const number=normalizeWhatsAppNumber(rawNumber);
     if(!number){
-      const entered=prompt('WhatsApp number for '+(d.tenantName||'this tenant')+'\nEnter 10-digit Indian number or include country code:', '');
-      if(!entered) return;
-      number=normalizeWhatsAppNumber(entered);
-      if(number.length<11){alert('Please enter a valid WhatsApp number.');return;}
-      if(tenant?.id && window.BiznexcoData?.updateTenantEditableFields){
-        try{
-          await window.BiznexcoData.updateTenantEditableFields(tenant.id,{contact_number:entered.trim()});
-        }catch(e){
-          console.warn('Could not save WhatsApp number:',e);
-          alert('The WhatsApp number could not be saved. Please check the tenant edit permissions.');
-          return;
-        }
-      }
+      alert('No WhatsApp number is saved for '+(d.tenantName||'this tenant')+'. Please save the tenant WhatsApp number in the Tenant account first.');
+      return;
     }
     window.open('https://wa.me/'+number+'?text='+encodeURIComponent(buildWhatsAppText()),'_blank');
   }
