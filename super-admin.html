@@ -7,6 +7,14 @@
 <style>
 *{box-sizing:border-box}body{margin:0;min-height:100vh;background:linear-gradient(135deg,#f8fafc,#eef4ff,#fff7ed);font-family:Arial,sans-serif;color:#0f172a;display:flex;align-items:center;justify-content:center;padding:20px}.shell{width:min(980px,100%);display:grid;grid-template-columns:1.1fr .9fr;background:#fff;border:1px solid #e2e8f0;border-radius:24px;overflow:hidden;box-shadow:0 20px 60px rgba(15,23,42,.15)}.intro{padding:48px;background:linear-gradient(135deg,#071a36,#123a75 60%,#0f172a);color:#fff}.eyebrow{font-size:11px;letter-spacing:2.5px;font-weight:800;color:#fbbf24}.intro h1{font-size:40px;line-height:1.08;margin:18px 0 12px}.intro p{color:#dbeafe;line-height:1.6;font-size:14px}.features{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:28px}.feature{padding:12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);border-radius:12px;font-size:12px;font-weight:700}.form{padding:42px;display:flex;align-items:center}.card{width:100%;max-width:380px;margin:auto}.card h2{margin:0 0 6px;font-size:28px}.sub{font-size:13px;color:#64748b;margin-bottom:22px}label{display:block;font-size:12px;font-weight:700;color:#334155;margin:0 0 6px}input{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:9px;font-size:14px;margin-bottom:14px}button{width:100%;padding:13px;border:0;border-radius:10px;background:linear-gradient(90deg,#0f172a,#1d4ed8);color:#fff;font-weight:800;font-size:14px;cursor:pointer}.msg{display:none;padding:10px;border-radius:9px;margin-bottom:14px;font-size:12px}.error{display:block;background:#fee2e2;color:#991b1b}.ok{display:block;background:#dcfce7;color:#166534}.hint{margin-top:16px;padding:10px;border-radius:9px;background:#f8fafc;border:1px solid #e2e8f0;font-size:11px;color:#64748b}@media(max-width:760px){.shell{grid-template-columns:1fr}.intro{padding:30px}.intro h1{font-size:32px}.form{padding:28px 20px}.features{grid-template-columns:1fr 1fr}}
 </style>
+<!-- This page is a standalone GitHub Pages HTML file, so the bare Supabase package import used by lib/supabaseClient.js needs a browser import map. -->
+<script type="importmap">
+{
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.99.1"
+  }
+}
+</script>
 </head>
 <body>
 <div class="shell">
