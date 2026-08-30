@@ -222,3 +222,81 @@
   }
   window.addEventListener('load', function () { decorate(); fixTenantLogout(); });
 })();
+
+/* -------------------------------------------------------------------------
+   Tenant WhatsApp display fix.
+   The Supabase tenant row already contains contact_number and
+   lib/tenants.js maps it to contactNumber. The owner tenant table simply
+   wasn't rendering that field. This additive observer adds one WhatsApp
+   column to the existing table without changing any existing controls.
+--------------------------------------------------------------------------- */
+(function () {
+  'use strict';
+  if (window.__biznexcoTenantWhatsAppListInstalled) return;
+  window.__biznexcoTenantWhatsAppListInstalled = true;
+
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function formatNumber(v) {
+    var raw = String(v || '').trim();
+    if (!raw) return 'Not saved';
+    return raw;
+  }
+
+  async function addWhatsAppColumn() {
+    var table = document.querySelector('#tRows') && document.querySelector('#tRows').closest('table');
+    var body = document.getElementById('tRows');
+    if (!table || !body || table.dataset.biznexcoWhatsappAdded === '1') return;
+    if (!window.BiznexcoData || typeof window.BiznexcoData.listAllTenantsForOwner !== 'function') return;
+
+    try {
+      var rows = await window.BiznexcoData.listAllTenantsForOwner(true);
+      var byUsername = {};
+      (rows || []).forEach(function (row) {
+        if (row && row.username) byUsername[String(row.username).trim().toLowerCase()] = row;
+      });
+
+      var head = table.querySelector('thead tr');
+      if (!head) return;
+      var th = document.createElement('th');
+      th.textContent = 'WhatsApp';
+      head.insertBefore(th, head.children[5] || null);
+
+      Array.prototype.forEach.call(body.querySelectorAll('tr'), function (tr) {
+        var cells = tr.querySelectorAll('td');
+        if (cells.length < 7) return;
+        var username = String(cells[4].textContent || '').trim().toLowerCase();
+        var row = byUsername[username];
+        var number = row && row.contact_number ? row.contact_number : '';
+        var td = document.createElement('td');
+        td.innerHTML = number
+          ? '<span title="Saved tenant WhatsApp number">' + esc(formatNumber(number)) + '</span>'
+          : '<span class="muted">Not saved</span>';
+        tr.insertBefore(td, tr.children[5] || null);
+      });
+      table.dataset.biznexcoWhatsappAdded = '1';
+    } catch (err) {
+      console.warn('Could not display tenant WhatsApp numbers:', err);
+    }
+  }
+
+  var observer = new MutationObserver(function () {
+    addWhatsAppColumn();
+  });
+
+  function start() {
+    var main = document.getElementById('main');
+    if (main) observer.observe(main, { childList: true, subtree: true });
+    addWhatsAppColumn();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', start, { once: true });
+  } else {
+    start();
+  }
+})();
