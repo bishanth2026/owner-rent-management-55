@@ -58,10 +58,22 @@
     const d=getLedgerData();
     if(!d.rows.length&&!d.summary.length){alert('Please load the Tenant Ledger first.');return;}
     const tenant=await getSelectedTenantRecord();
-    const number=normalizeWhatsAppNumber(tenant?.contact_number || tenant?.contactNumber || '');
+    let rawNumber=tenant?.contact_number || tenant?.contactNumber || '';
+    let number=normalizeWhatsAppNumber(rawNumber);
     if(!number){
-      alert('WhatsApp number is not saved for this tenant. Please edit the tenant and enter the WhatsApp number first.');
-      return;
+      const entered=prompt('WhatsApp number for '+(d.tenantName||'this tenant')+'\nEnter 10-digit Indian number or include country code:', '');
+      if(!entered) return;
+      number=normalizeWhatsAppNumber(entered);
+      if(number.length<11){alert('Please enter a valid WhatsApp number.');return;}
+      if(tenant?.id && window.BiznexcoData?.updateTenantEditableFields){
+        try{
+          await window.BiznexcoData.updateTenantEditableFields(tenant.id,{contact_number:entered.trim()});
+        }catch(e){
+          console.warn('Could not save WhatsApp number:',e);
+          alert('The WhatsApp number could not be saved. Please check the tenant edit permissions.');
+          return;
+        }
+      }
     }
     window.open('https://wa.me/'+number+'?text='+encodeURIComponent(buildWhatsAppText()),'_blank');
   }
