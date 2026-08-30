@@ -26,6 +26,37 @@
     if(!cell||cell.querySelector('.'+cls))return;
     const b=document.createElement('button');b.type='button';b.className=cls==='saDeleteBtn'?'danger saDeleteBtn':'secondary saEditBtn';b.textContent=text;b.style.marginLeft='6px';b.onclick=handler;cell.appendChild(b);
   }
+  function cellText(tr,index){return String(tr?.children?.[index]?.textContent||'').trim();}
+  function norm(v){return String(v??'').trim().toLowerCase().replace(/\s+/g,' ');}
+  function findTenantRecord(tr,rows){
+    const name=norm(cellText(tr,0));
+    const username=norm(cellText(tr,1));
+    const owner=norm(cellText(tr,2));
+    const unit=norm(cellText(tr,3));
+    const exact=rows.find(r=>
+      norm(r?.name)===name &&
+      norm(r?.username)===username &&
+      norm(r?.unit_label)===unit &&
+      (owner==='—' || owner==='-' || owner==='' || norm(r?.owner_name)===owner || norm(r?.owner_email)===owner)
+    );
+    if(exact)return exact;
+    return rows.find(r=>norm(r?.name)===name && norm(r?.username)===username && norm(r?.unit_label)===unit) ||
+           rows.find(r=>norm(r?.name)===name && norm(r?.username)===username) ||
+           rows.find(r=>norm(r?.name)===name && norm(r?.unit_label)===unit);
+  }
+  function findOwnerRecord(tr,rows){
+    const name=norm(cellText(tr,0)),email=norm(cellText(tr,1));
+    return rows.find(r=>norm(r?.full_name)===name && norm(r?.email)===email) ||
+           rows.find(r=>norm(r?.email)===email) ||
+           rows.find(r=>norm(r?.full_name)===name);
+  }
+  function findPaymentRecord(tr,rows){
+    const date=norm(cellText(tr,0)),tenant=norm(cellText(tr,1)),owner=norm(cellText(tr,2)),amount=norm(cellText(tr,3)),bank=norm(cellText(tr,4)),ref=norm(cellText(tr,5));
+    return rows.find(r=>
+      norm(r?.date)===date && norm(r?.tenant_name)===tenant &&
+      norm(r?.amount)===amount && norm(r?.bank)===bank && norm(r?.ref||'')===ref
+    ) || rows.find(r=>norm(r?.date)===date && norm(r?.tenant_name)===tenant && norm(r?.amount)===amount && norm(r?.bank)===bank);
+  }
   async function editOwner(r){
     const name=prompt('Owner name:',r.full_name||'');if(name===null)return;const email=prompt('Owner email:',r.email||'');if(email===null)return;
     await callAdmin({action:'update_owner',id:r.id,full_name:name.trim(),email:email.trim()});alert('Owner updated successfully.');await refreshPage();
@@ -51,9 +82,11 @@
       if(type==='payments')ensurePaymentActionsColumn();
       const out=await callAdmin({action:'list',type}),rows=out?.data||[],trs=Array.from(main.querySelectorAll('table tbody tr'));
       trs.forEach((tr,index)=>{
-        const r=rows[index];if(!r||tr.querySelector('.muted'))return;
+        let r=type==='owners'?findOwnerRecord(tr,rows):type==='tenants'?findTenantRecord(tr,rows):findPaymentRecord(tr,rows);
+        if(!r){r=rows[index];}
+        if(!r||tr.querySelector('.muted'))return;
         let cells=tr.querySelectorAll('td');if(!cells.length)return;
-        let actionCell=type==='payments'?cells[cells.length-1]:cells[cells.length-1];
+        let actionCell=cells[cells.length-1];
         actionButton(actionCell,'saEditBtn','Edit',async()=>{try{if(type==='owners')await editOwner(r);else if(type==='tenants')await editTenant(r);else await editPayment(r);}catch(e){alert(e.message||'Unable to update record.');}});
         actionButton(actionCell,'saDeleteBtn','Delete',async()=>{try{await deleteRecord(type,r);}catch(e){alert(e.message||'Unable to delete record.');}});
       });
