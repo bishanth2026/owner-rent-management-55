@@ -44,13 +44,6 @@
     });
   }
 
-  /*
-   * Owner -> Tenants -> Edit Tenant
-   * Adds editable login username + optional password without replacing the
-   * existing tenant-management code. The click handler runs in capture phase
-   * so the old read-only Edit modal is not opened for Supabase tenant rows.
-   * All normal tenant fields remain editable exactly as before.
-   */
   function installTenantCredentialEditor() {
     if (window.__biznexcoTenantCredentialEditorInstalled) return;
     window.__biznexcoTenantCredentialEditorInstalled = true;
@@ -60,7 +53,7 @@
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
+        .replace(/\"/g, '&quot;')
         .replace(/'/g, '&#39;');
     }
 
@@ -164,14 +157,68 @@
     }, true);
   }
 
+  /* Tenant portal Logout: only the tenant-page Logout button is moved to the
+     top-right. Owner and Super Admin controls are intentionally untouched. */
+  function fixTenantLogout() {
+    var pages = document.querySelectorAll('.page');
+    Array.prototype.forEach.call(pages, function (page) {
+      var isTenantPage = !!page.querySelector('.tenant-premium-hero') || /tenant\s*(dashboard|portal)/i.test(page.textContent || '');
+      if (!isTenantPage) return;
+      var button = Array.prototype.find.call(page.querySelectorAll('button'), function (b) {
+        return /^\s*logout\s*$/i.test(b.textContent || '');
+      });
+      if (!button || button.dataset.biznexcoTenantLogoutFixed === '1') return;
+
+      button.dataset.biznexcoTenantLogoutFixed = '1';
+      page.style.position = page.style.position || 'relative';
+      button.style.position = 'absolute';
+      button.style.top = '14px';
+      button.style.right = '14px';
+      button.style.zIndex = '30';
+      button.style.margin = '0';
+
+      button.addEventListener('click', async function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        if (button.dataset.biznexcoLoggingOut === '1') return;
+        button.dataset.biznexcoLoggingOut = '1';
+        button.disabled = true;
+        try {
+          if (window.BiznexcoAuth && typeof window.BiznexcoAuth.tenantSignOut === 'function') {
+            await window.BiznexcoAuth.tenantSignOut();
+          } else if (window.BiznexcoAuth && window.BiznexcoAuth.supabase) {
+            await window.BiznexcoAuth.supabase.auth.signOut();
+          }
+        } catch (err) {
+          console.error('Tenant logout failed:', err);
+          try { if (window.BiznexcoAuth && window.BiznexcoAuth.supabase) await window.BiznexcoAuth.supabase.auth.signOut(); } catch (_) {}
+        } finally {
+          try { if (window.BiznexcoAuth && typeof window.BiznexcoAuth.clearSession === 'function') window.BiznexcoAuth.clearSession(); } catch (_) {}
+          try { if (window.BiznexcoAuth && typeof window.BiznexcoAuth.clearLastPage === 'function') window.BiznexcoAuth.clearLastPage(); } catch (_) {}
+          window.location.href = './index.html';
+        }
+      }, true);
+    });
+  }
+
+  var tenantLogoutObserver = new MutationObserver(fixTenantLogout);
+  function startTenantLogoutFix() {
+    var main = document.getElementById('main');
+    if (main) tenantLogoutObserver.observe(main, { childList: true, subtree: true });
+    fixTenantLogout();
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function () {
       decorate();
       installTenantCredentialEditor();
+      startTenantLogoutFix();
     });
   } else {
     decorate();
     installTenantCredentialEditor();
+    startTenantLogoutFix();
   }
-  window.addEventListener('load', decorate);
+  window.addEventListener('load', function () { decorate(); fixTenantLogout(); });
 })();
