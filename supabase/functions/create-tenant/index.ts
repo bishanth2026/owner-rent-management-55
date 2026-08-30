@@ -42,6 +42,7 @@ Deno.serve(async (req) => {
     const username = String(body.username || '').trim().toLowerCase();
     const password = String(body.password || '');
     const { name, unitLabel, monthlyRent, rentStartDate, propertyId, unitId } = body;
+    const contactNumber = String(body.contactNumber || '').trim();
 
     if (!username || !password || password.length < 6) {
       return json({ error: 'Username and a password of at least 6 characters are required' }, 400);
@@ -92,6 +93,7 @@ Deno.serve(async (req) => {
         rent_start_date: rentStartDate,
         username,
         login_email: loginEmail,
+        contact_number: contactNumber || null,
       })
       .select()
       .single();
