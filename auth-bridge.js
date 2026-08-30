@@ -204,6 +204,20 @@ async function markSuperAdminNavigation(){
   }
 }
 
+// Always provide a dedicated Super Admin entry on the initial login screen.
+// This does not alter Owner/Tenant authentication or their existing controls.
+function ensureSuperAdminLoginEntry(){
+  const roleBox = document.querySelector('.login-role');
+  if(!roleBox || document.getElementById('superAdminLoginBtn')) return;
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.id = 'superAdminLoginBtn';
+  btn.textContent = '🛡️ Super Admin Login';
+  btn.style.cssText = 'grid-column:1 / -1;width:100%;border:1px solid #cbd5e1;background:#f8fafc;border-radius:10px;padding:11px;font-weight:800;color:#475569;cursor:pointer;';
+  btn.addEventListener('click',()=>{ window.location.href = './super-admin.html'; });
+  roleBox.appendChild(btn);
+}
+
 window.addEventListener('biznexco-auth-ready',markSuperAdminNavigation);
 
 supabase.auth.onAuthStateChange((event)=>{
@@ -225,5 +239,11 @@ const startTenantUIObserver = () => {
 };
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded',startTenantUIObserver,{once:true});
 else startTenantUIObserver();
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', ensureSuperAdminLoginEntry, { once:true });
+} else {
+  ensureSuperAdminLoginEntry();
+}
 
 window.dispatchEvent(new Event('biznexco-auth-ready'));
