@@ -34,17 +34,26 @@ Deno.serve(async (req)=>{
     if(existing) return json({error:'An account with this email already exists.'},409);
 
     const {data:newUser,error:createErr}=await adminClient.auth.admin.createUser({
-      email,password,email_confirm:true,user_metadata:{full_name:fullName}
+      email,password,email_confirm:true,user_metadata:{full_name:fullName,role:'owner'}
     });
     if(createErr) return json({error:createErr.message},400);
 
-    const {error:updateErr}=await adminClient.from('profiles').update({
-      role:'owner',full_name:fullName,email
-    }).eq('id',newUser.user.id);
-    if(updateErr){
+    // Supabase Auth does not automatically create a public.profiles row in
+    // this project. The previous implementation used UPDATE here, which
+    // silently succeeded when no profile row existed, leaving the new user
+    // without an owner profile. Create/upsert the profile explicitly.
+    const {data:ownerProfile,error:profileErr}=await adminClient.from('profiles').upsert({
+      id:newUser.user.id,
+      role:'owner',
+      full_name:fullName,
+      email
+    },{onConflict:'id'}).select('id,role,full_name,email').single();
+
+    if(profileErr || !ownerProfile){
       await adminClient.auth.admin.deleteUser(newUser.user.id);
-      return json({error:updateErr.message},500);
+      return json({error:profileErr?.message || 'Unable to create the owner profile.'},500);
     }
-    return json({success:true,owner:{id:newUser.user.id,full_name:fullName,email,role:'owner'}});
+
+    return json({success:true,owner:ownerProfile});
   }catch(e){return json({error:e instanceof Error?e.message:'Unexpected error'},500);}
 });
