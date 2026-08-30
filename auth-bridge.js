@@ -30,7 +30,7 @@ window.BiznexcoAuth = {
   tenantSignIn, tenantSignOut, fetchOwnTenantRecord, updateOwnContactInfo,
   restoreSession, clearSession, getLastPage, setLastPage, clearLastPage,
   initAuthListener,
-  resetTenantPassword, createTenant, manageTenant, createOwner, manageOwner, manageAdminTenant,
+  resetTenantPassword, createTenant, manageTenant, createOwner, manageOwner,
 };
 window.BiznexcoData = {
   listActiveTenants, listAllTenantsForOwner, getTenantById,
