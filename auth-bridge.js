@@ -36,6 +36,17 @@ window.BiznexcoAuth = {
   ownerListPayments, ownerSubmitPayment, ownerUpdatePayment, ownerDeletePayment,
   toLegacyPaymentShape,
 };
+
+// Compatibility bridge for the existing index.html payment handlers.
+// The payment module was already imported correctly above, but the page calls
+// window.BiznexcoPayments.*. Expose the same functions under that namespace
+// without changing any payment UI, database logic, or existing handlers.
+window.BiznexcoPayments = {
+  tenantSubmitPayment, tenantListOwnPayments, updateOwnPayment,
+  ownerListPayments, ownerSubmitPayment, ownerUpdatePayment, ownerDeletePayment,
+  toLegacyPaymentShape,
+};
+
 window.BiznexcoData = {
   listActiveTenants, listAllTenantsForOwner, getTenantById,
   updateTenantEditableFields, deactivateTenant, reactivateTenant,
