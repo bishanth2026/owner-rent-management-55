@@ -73,9 +73,61 @@ async function markSuperAdminNavigation(){
   }
 }
 
+// The main application is a legacy non-module script while this bridge is a
+// module. On GitHub Pages, the module and the legacy script can finish booting
+// in different orders. Re-bind Super Admin navigation at the document level
+// so an early/late boot cannot leave the admin tabs inert. Only admin_* tabs
+// are handled here; Owner and Tenant navigation is left completely alone.
+async function installSuperAdminNavigationFix(){
+  try{
+    const {data:{user}} = await supabase.auth.getUser();
+    if(!user) return;
+    const profile = await fetchOwnProfile();
+    if(!profile || profile.role !== 'super_admin') return;
+
+    const apply = () => {
+      const nav = document.getElementById('nav');
+      if(!nav) return false;
+      nav.style.pointerEvents = 'auto';
+      nav.style.position = 'sticky';
+      nav.style.zIndex = '1001';
+      const buttons = nav.querySelectorAll('button[data-page^="admin_"]');
+      if(!buttons.length) return false;
+      buttons.forEach(button => {
+        if(button.__biznexcoAdminNavFix) return;
+        button.__biznexcoAdminNavFix = true;
+        button.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          const page = button.dataset.page;
+          buttons.forEach(b => b.classList.toggle('active', b === button));
+          setLastPage(page);
+          // The existing page renderer is intentionally kept untouched. A
+          // clean reload lets its normal INITIAL_SESSION restore the selected
+          // Super Admin page reliably, even when boot order varies on Pages.
+          window.location.href = './index.html';
+        }, true);
+      });
+      return true;
+    };
+
+    if(!apply()){
+      const observer = new MutationObserver(() => { if(apply()) observer.disconnect(); });
+      observer.observe(document.documentElement,{childList:true,subtree:true});
+      setTimeout(()=>observer.disconnect(),15000);
+    }
+  }catch(e){
+    console.debug('Super Admin navigation fix skipped:',e);
+  }
+}
+
 window.addEventListener('biznexco-auth-ready',markSuperAdminNavigation);
+window.addEventListener('biznexco-auth-ready',installSuperAdminNavigationFix);
 supabase.auth.onAuthStateChange((event)=>{
-  if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION') setTimeout(markSuperAdminNavigation,0);
+  if(event === 'SIGNED_IN' || event === 'INITIAL_SESSION'){
+    setTimeout(markSuperAdminNavigation,0);
+    setTimeout(installSuperAdminNavigationFix,0);
+  }
 });
 
 window.dispatchEvent(new Event('biznexco-auth-ready'));
