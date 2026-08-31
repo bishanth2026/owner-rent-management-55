@@ -4,6 +4,9 @@
   'use strict';
   function esc(value){return String(value==null?'':value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;');}
   function text(value){return String(value==null?'':value).replace(/\s+/g,' ').trim();}
+  // jsPDF's built-in Helvetica font does not contain the Indian Rupee glyph.
+  // Render currency as INR in PDFs so amounts never appear as a broken glyph.
+  function pdfText(value){return String(value==null?'':value).replace(/₹/g,'INR ');}
 
   function normalizeWhatsAppNumber(value){
     let n=String(value||'').replace(/\D/g,'');
@@ -102,7 +105,7 @@
     return String(value||'tenant-report').replace(/[^a-z0-9_-]+/gi,'_').replace(/^_+|_+$/g,'').slice(0,70)||'tenant-report';
   }
 
-  function addWrapped(doc, value, x, y, width, lineHeight){
+  function addWrapped(doc,value,x,y,width,lineHeight){
     const lines=doc.splitTextToSize(String(value||''),width);
     doc.text(lines,x,y);
     return y+(lines.length*lineHeight);
@@ -121,8 +124,8 @@
       data.summary.slice(0,4).forEach((s,i)=>{
         const x=margin+i*(cardW+6);
         doc.setDrawColor(220,226,235);doc.roundedRect(x,y,cardW,42,6,6,'S');
-        doc.setFontSize(7);doc.setTextColor(100,110,125);doc.text(s.label||'',x+7,y+13);
-        doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(15,23,42);doc.text(String(s.value||''),x+7,y+29,{maxWidth:cardW-14});
+        doc.setFontSize(7);doc.setTextColor(100,110,125);doc.text(pdfText(s.label||''),x+7,y+13);
+        doc.setFont('helvetica','bold');doc.setFontSize(11);doc.setTextColor(15,23,42);doc.text(pdfText(s.value||''),x+7,y+29,{maxWidth:cardW-14});
         doc.setFont('helvetica','normal');
       });
       y+=54;
@@ -136,7 +139,7 @@
     header();
     data.rows.forEach(row=>{
       const cells=[row[0]||'',row[1]||'',row[2]||'',row[3]||'',row[4]||''];
-      const split=cells.map((v,i)=>doc.splitTextToSize(String(v),widths[i]-10));
+      const split=cells.map((v,i)=>doc.splitTextToSize(pdfText(v),widths[i]-10));
       const lines=Math.max.apply(null,split.map(a=>a.length));
       const rowH=Math.max(18,lines*9+7);
       if(y+rowH>pageH-margin){doc.addPage();y=42;header();}
@@ -153,7 +156,7 @@
     let y=34;
     doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text('BIZNEXCO Rent Management — Rent Report',margin,y);y+=18;
     doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setTextColor(80,90,105);doc.text('Tenant: '+data.tenantName+(data.asOf?'   |   As of: '+data.asOf:''),margin,y);y+=14;doc.setTextColor(15,23,42);
-    if(data.summary.length){doc.setFontSize(8);doc.text(data.summary.join('     '),margin,y);y+=14;}
+    if(data.summary.length){doc.setFontSize(8);doc.text(pdfText(data.summary.join('     ')),margin,y);y+=14;}
     const headers=['Tenant','Unit','Start','Monthly Rent','Accrued','Paid','Pending','Advance','Status'];
     const widths=[contentW*.18,contentW*.07,contentW*.10,contentW*.12,contentW*.10,contentW*.10,contentW*.10,contentW*.10,contentW*.13];
     function header(){
@@ -162,7 +165,7 @@
     }
     header();
     data.rows.forEach(row=>{
-      const split=headers.map((_,i)=>doc.splitTextToSize(String(row[i]||''),widths[i]-8));
+      const split=headers.map((_,i)=>doc.splitTextToSize(pdfText(row[i]||''),widths[i]-8));
       const lines=Math.max.apply(null,split.map(a=>a.length));
       const rowH=Math.max(17,lines*8+7);
       if(y+rowH>pageH-margin){doc.addPage();y=34;header();}
@@ -193,8 +196,6 @@
     if(navigator.share && (!navigator.canShare || navigator.canShare({files:[file]}))){
       try{await navigator.share(shareData);return true;}catch(e){if(e?.name==='AbortError')return true;console.warn('Share cancelled/failed:',e);}
     }
-    // Desktop browsers cannot programmatically attach a local PDF to WhatsApp Web.
-    // Save the exact PDF and open WhatsApp with the tenant number and message ready.
     const a=document.createElement('a');a.href=URL.createObjectURL(pdfInfo.blob);a.download=pdfInfo.filename;document.body.appendChild(a);a.click();a.remove();
     window.open('https://wa.me/'+number+'?text='+encodeURIComponent(message),'_blank');
     alert('The PDF has been saved. WhatsApp is open for this tenant. Attach the saved PDF in the WhatsApp chat.');
@@ -237,7 +238,7 @@
     }catch(e){console.error(e);alert('Unable to create the Tenant Ledger PDF. Please try again.');}
   }
 
-  function bindButton(id, handler){
+  function bindButton(id,handler){
     const btn=document.getElementById(id);
     if(!btn)return false;
     if(btn.dataset.biznexcoBound==='1')return true;
